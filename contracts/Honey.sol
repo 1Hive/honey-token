@@ -10,8 +10,8 @@ contract Honey is IERC20 {
 
     // bytes32 private constant EIP712DOMAIN_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
     bytes32 private constant EIP712DOMAIN_HASH = 0x8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f;
-    // bytes32 private constant NAME_HASH = keccak256("Aragon Network Token")
-    bytes32 private constant NAME_HASH = 0x711a8013284a3c0046af6c0d6ed33e8bbc2c7a11d615cf4fdc8b1ac753bda618;
+    // bytes32 private constant NAME_HASH = keccak256("Honey")
+    bytes32 private constant NAME_HASH = 0xb1fe574678f9d45a762912fb436b82a323258f5535fab3006593cf786f82ac07;
     // bytes32 private constant VERSION_HASH = keccak256("1")
     bytes32 private constant VERSION_HASH = 0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6;
 
@@ -21,8 +21,8 @@ contract Honey is IERC20 {
     //     keccak256("TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)");
     bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = 0x7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267;
 
-    string public constant name = "Aragon Network Token";
-    string public constant symbol = "ANT";
+    string public constant name = "Honey";
+    string public constant symbol = "HNY";
     uint8 public constant decimals = 18;
 
     address public minter;
@@ -40,7 +40,7 @@ contract Honey is IERC20 {
     event ChangeMinter(address indexed minter);
 
     modifier onlyMinter {
-        require(msg.sender == minter, "ANTV2:NOT_MINTER");
+        require(msg.sender == minter, "HNY:NOT_MINTER");
         _;
     }
 
@@ -58,7 +58,7 @@ contract Honey is IERC20 {
         );
         address recoveredAddress = ecrecover(digest, v, r, s);
         // Explicitly disallow authorizations for address(0) as ecrecover returns address(0) on malformed messages
-        require(recoveredAddress != address(0) && recoveredAddress == signer, "ANTV2:INVALID_SIGNATURE");
+        require(recoveredAddress != address(0) && recoveredAddress == signer, "HNY:INVALID_SIGNATURE");
     }
 
     function _changeMinter(address newMinter) internal {
@@ -85,7 +85,7 @@ contract Honey is IERC20 {
     }
 
     function _transfer(address from, address to, uint256 value) private {
-        require(to != address(this) && to != address(0), "ANTV2:RECEIVER_IS_TOKEN_OR_ZERO");
+        require(to != address(this) && to != address(0), "HNY:RECEIVER_IS_TOKEN_OR_ZERO");
 
         // Balance is implicitly checked with SafeMath's underflow protection
         balanceOf[from] = balanceOf[from].sub(value);
@@ -144,7 +144,7 @@ contract Honey is IERC20 {
     }
 
     function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external {
-        require(deadline >= block.timestamp, "ANTV2:AUTH_EXPIRED");
+        require(deadline >= block.timestamp, "HNY:AUTH_EXPIRED");
 
         bytes32 encodeData = keccak256(abi.encode(PERMIT_TYPEHASH, owner, spender, value, nonces[owner]++, deadline));
         _validateSignedData(owner, encodeData, v, r, s);
@@ -165,9 +165,9 @@ contract Honey is IERC20 {
     )
     external
     {
-        require(block.timestamp > validAfter, "ANTV2:AUTH_NOT_YET_VALID");
-        require(block.timestamp < validBefore, "ANTV2:AUTH_EXPIRED");
-        require(!authorizationState[from][nonce],  "ANTV2:AUTH_ALREADY_USED");
+        require(block.timestamp > validAfter, "HNY:AUTH_NOT_YET_VALID");
+        require(block.timestamp < validBefore, "HNY:AUTH_EXPIRED");
+        require(!authorizationState[from][nonce],  "HNY:AUTH_ALREADY_USED");
 
         bytes32 encodeData = keccak256(abi.encode(TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce));
         _validateSignedData(from, encodeData, v, r, s);
