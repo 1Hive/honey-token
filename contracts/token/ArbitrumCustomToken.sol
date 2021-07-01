@@ -21,7 +21,7 @@ pragma solidity ^0.5.17;
 /**
  * @title Minimum expected interface for L1 custom token (see TestCustomTokenL1.sol for an example implementation)
  */
-interface ArbCustomToken {
+interface ArbitrumCustomToken {
     /**
      * @notice Should make an external call to EthERC20Bridge.registerCustomL2Token
      */

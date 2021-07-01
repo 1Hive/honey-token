@@ -1,6 +1,6 @@
 pragma solidity ^0.5.17;
 
-contract ArbGatewayRouter {
+contract ArbitrumGatewayRouter {
 
     function setGateway(
         address _gateway,
