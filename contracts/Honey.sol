@@ -1,11 +1,12 @@
 pragma solidity 0.5.17;
 
-import './IERC20.sol';
-import './SafeMath.sol';
+import './token/IERC20.sol';
+import './token/SafeMath.sol';
+import './token/ArbCustomToken.sol';
 
 
 // Token copied from ANTv2: https://github.com/aragon/aragon-network-token/blob/master/packages/v2/contracts/ANTv2.sol
-contract Honey is IERC20 {
+contract Honey is ArbCustomToken, IERC20 {
     using SafeMath for uint256;
 
     // bytes32 private constant EIP712DOMAIN_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
@@ -176,5 +177,14 @@ contract Honey is IERC20 {
         emit AuthorizationUsed(from, nonce);
 
         _transfer(from, to, value);
+    }
+
+    function registerTokenOnL2(
+        address l2CustomTokenAddress,
+        uint256 maxSubmissionCost,
+        uint256 maxGas,
+        uint256 gasPriceBid
+    ) external {
+
     }
 }
