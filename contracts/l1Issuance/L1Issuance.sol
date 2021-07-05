@@ -13,13 +13,16 @@ contract L1Issuance {
     ArbitrumInbox public arbitrumInbox;
     ArbitrumGatewayRouter public arbitrumGatewayRouter;
 
-    modifier onlyIssuanceFromL2 {
-        require(_getL2toL1Sender() == l2IssuanceAddress, "ERROR: Not issuance");
-        _;
-    }
+    event IssuanceAddressUpdated(address oldAddress, address newAddress);
+    event GovernanceAddressUpdated(address oldAddress, address newAddress);
 
     modifier onlyGovernanceFromL2 {
         require(_getL2toL1Sender() == l2GovernanceAddress, "ERROR: Not governance");
+        _;
+    }
+
+    modifier onlyIssuanceFromL2 {
+        require(_getL2toL1Sender() == l2IssuanceAddress, "ERROR: Not issuance");
         _;
     }
 
@@ -37,12 +40,14 @@ contract L1Issuance {
         arbitrumGatewayRouter = _arbitrumGatewayRouter;
     }
 
-    function updateIssuanceAddress(address _l2IssuanceAddress) external onlyGovernanceFromL2 {
-        l2IssuanceAddress = _l2IssuanceAddress;
+    function updateGovernanceAddress(address _l2GovernanceAddress) external onlyGovernanceFromL2 {
+        GovernanceAddressUpdated(l2GovernanceAddress, _l2GovernanceAddress);
+        l2GovernanceAddress = _l2GovernanceAddress;
     }
 
-    function updateGovernanceAddress(address _l2GovernanceAddress) external onlyGovernanceFromL2 {
-        l2GovernanceAddress = _l2GovernanceAddress;
+    function updateIssuanceAddress(address _l2IssuanceAddress) external onlyGovernanceFromL2 {
+        IssuanceAddressUpdated(l2IssuanceAddress, _l2IssuanceAddress);
+        l2IssuanceAddress = _l2IssuanceAddress;
     }
 
     function mintHoney(uint256 _amount) external onlyIssuanceFromL2 {
@@ -53,6 +58,10 @@ contract L1Issuance {
     function burnHoney(uint256 _amount) external onlyIssuanceFromL2 {
         address honeyGateway = arbitrumGatewayRouter.l1TokenToGateway(address(honey));
         honey.burn(honeyGateway, _amount);
+    }
+
+    function changeHoneyIssuer(address _issuer) external onlyGovernanceFromL2 {
+        honey.changeIssuer(_issuer);
     }
 
     function _getL2toL1Sender() internal returns (address) {
