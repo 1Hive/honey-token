@@ -3,6 +3,7 @@ pragma solidity ^0.5.17;
 import '../Honey.sol';
 import './ArbitrumInbox.sol';
 import './ArbitrumOutbox.sol';
+import './ArbitrumGatewayRouter.sol';
 
 contract L1Issuance {
 
@@ -10,8 +11,7 @@ contract L1Issuance {
     address public l2IssuanceAddress;
     address public l2GovernanceAddress;
     ArbitrumInbox public arbitrumInbox;
-    mapping(uint256 => bool) public issuanceRequestIds;
-    mapping(uint256 => uint256) public issuanceIdLatestRetryableTicket; // issuanceRequestId to LatestRetryableTicketId
+    ArbitrumGatewayRouter public arbitrumGatewayRouter;
 
     modifier onlyIssuanceFromL2 {
         require(_getL2toL1Sender() == l2IssuanceAddress, "ERROR: Not issuance");
@@ -27,12 +27,14 @@ contract L1Issuance {
         Honey _honey,
         address _l2IssuanceAddress,
         address _l2GovernanceAddress,
-        ArbitrumInbox _arbitrumInbox
+        ArbitrumInbox _arbitrumInbox,
+        ArbitrumGatewayRouter _arbitrumGatewayRouter
     ) public {
         honey = _honey;
         l2IssuanceAddress = _l2IssuanceAddress;
         l2GovernanceAddress = _l2GovernanceAddress;
         arbitrumInbox = _arbitrumInbox;
+        arbitrumGatewayRouter = _arbitrumGatewayRouter;
     }
 
     function updateIssuanceAddress(address _l2IssuanceAddress) external onlyGovernanceFromL2 {
@@ -43,44 +45,14 @@ contract L1Issuance {
         l2GovernanceAddress = _l2GovernanceAddress;
     }
 
-    function mintHoney(uint256 _issuanceRequestId, uint256 _amount) external onlyIssuanceFromL2 {
-        issuanceRequestIds[_issuanceRequestId] = true;
-        honey.mint(address(this), _amount);
-        // send minted honey to L2Issuance
+    function mintHoney(uint256 _amount) external onlyIssuanceFromL2 {
+        address honeyGateway = arbitrumGatewayRouter.l1TokenToGateway(address(honey));
+        honey.mint(honeyGateway, _amount);
     }
 
-    // Expects to have received _amount before executing
-    function burnHoney(uint256 _issuanceRequestId, uint256 _amount) external onlyIssuanceFromL2 {
-        require(honey.balanceOf(address(this)) >= _amount, "ERROR: No burn balance");
-        issuanceRequestIds[_issuanceRequestId] = true;
-        honey.burn(_amount);
-    }
-
-    // Get maxSubmissionCost from ArbRetryableTx.getSubmissionPrice on Arbitrum chain (or arb-ts lib)
-    // Get maxGas and gasPriceBid from NodeInterface.estimateRetryableTicket (requires correct maxSubmissionCost)
-    function finaliseL2Issuance(
-        uint256 _issuanceRequestId,
-        uint256 _maxSubmissionCost,
-        uint256 _maxGas,
-        uint256 _gasPriceBid
-    ) external payable {
-        require(issuanceRequestIds[_issuanceRequestId], "ERROR: Unused issuance id");
-
-        uint256 l2CallValue = 0;
-        address excessFeeRefundAddress = msg.sender;
-        address callValueRefundAddress = msg.sender;
-        bytes memory data = abi.encodeWithSignature("finaliseIssuance(uint256)", _issuanceRequestId);
-
-        issuanceIdLatestRetryableTicket[_issuanceRequestId] = arbitrumInbox.createRetryableTicket.value(msg.value)(
-            l2IssuanceAddress,
-            l2CallValue,
-            _maxSubmissionCost,
-            excessFeeRefundAddress,
-            callValueRefundAddress,
-            _maxGas,
-            _gasPriceBid,
-            data
-        );
+    function burnHoney(uint256 _amount) external onlyIssuanceFromL2 {
+        address honeyGateway = arbitrumGatewayRouter.l1TokenToGateway(address(honey));
+        honey.burn(honeyGateway, _amount);
     }
 
     function _getL2toL1Sender() internal returns (address) {

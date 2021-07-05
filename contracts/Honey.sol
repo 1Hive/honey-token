@@ -26,7 +26,7 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     string public constant symbol = "HNY";
     uint8 public constant decimals = 18;
 
-    address public minter;
+    address public issuer;
     uint256 public totalSupply;
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -38,15 +38,15 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
-    event ChangeMinter(address indexed minter);
+    event ChangeIssuer(address indexed issuer);
 
-    modifier onlyMinter {
-        require(msg.sender == minter, "HNY:NOT_MINTER");
+    modifier onlyIssuer {
+        require(msg.sender == issuer, "HNY:NOT_ISSUER");
         _;
     }
 
-    constructor(address initialMinter) public {
-        _changeMinter(initialMinter);
+    constructor(address initialIssuer) public {
+        _changeIssuer(initialIssuer);
     }
 
     function _validateSignedData(address signer, bytes32 encodeData, uint8 v, bytes32 r, bytes32 s) internal view {
@@ -62,9 +62,9 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         require(recoveredAddress != address(0) && recoveredAddress == signer, "HNY:INVALID_SIGNATURE");
     }
 
-    function _changeMinter(address newMinter) internal {
-        minter = newMinter;
-        emit ChangeMinter(newMinter);
+    function _changeIssuer(address newIssuer) internal {
+        issuer = newIssuer;
+        emit ChangeIssuer(newIssuer);
     }
 
     function _mint(address to, uint256 value) internal {
@@ -110,17 +110,17 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         );
     }
 
-    function mint(address to, uint256 value) external onlyMinter returns (bool) {
+    function changeIssuer(address newIssuer) external onlyIssuer {
+        _changeIssuer(newIssuer);
+    }
+
+    function mint(address to, uint256 value) external onlyIssuer returns (bool) {
         _mint(to, value);
         return true;
     }
 
-    function changeMinter(address newMinter) external onlyMinter {
-        _changeMinter(newMinter);
-    }
-
-    function burn(uint256 value) external returns (bool) {
-        _burn(msg.sender, value);
+    function burn(address from, uint256 value) external onlyIssuer returns (bool) {
+        _burn(from, value);
         return true;
     }
 
