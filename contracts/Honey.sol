@@ -2,7 +2,8 @@ pragma solidity 0.5.17;
 
 import './token/IERC20.sol';
 import './token/SafeMath.sol';
-import './token/ArbitrumCustomToken.sol';
+import './arbitrum/ArbitrumCustomToken.sol';
+import './arbitrum/ArbitrumGatewayRouter.sol';
 
 
 // Token copied from ANTv2: https://github.com/aragon/aragon-network-token/blob/master/packages/v2/contracts/ANTv2.sol
@@ -27,6 +28,8 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     uint8 public constant decimals = 18;
 
     address public issuer;
+    ArbitrumGatewayRouter public gatewayRouter;
+    address public gateway;
     uint256 public totalSupply;
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -45,8 +48,10 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         _;
     }
 
-    constructor(address initialIssuer) public {
+    constructor(address initialIssuer, ArbitrumGatewayRouter _gatewayRouter, address _gateway) public {
         _changeIssuer(initialIssuer);
+        gatewayRouter = _gatewayRouter;
+        gateway = _gateway;
     }
 
     function _validateSignedData(address signer, bytes32 encodeData, uint8 v, bytes32 r, bytes32 s) internal view {
@@ -185,6 +190,10 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         uint256 maxGas,
         uint256 gasPriceBid
     ) external {
+        // TODO: Do we need this?
+    }
 
+    function registerWithGatewayRouter(uint256 _maxGas, uint256 _gasPriceBid, uint256 _maxSubmissionCost) external {
+        gatewayRouter.setGateway(gateway, _maxGas, _gasPriceBid, _maxSubmissionCost);
     }
 }

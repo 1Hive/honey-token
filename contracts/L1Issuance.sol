@@ -1,9 +1,9 @@
 pragma solidity ^0.5.17;
 
 import '../Honey.sol';
-import './ArbitrumInbox.sol';
-import './ArbitrumOutbox.sol';
-import './ArbitrumGatewayRouter.sol';
+import './arbitrum/ArbitrumInbox.sol';
+import './arbitrum/ArbitrumOutbox.sol';
+import './arbitrum/ArbitrumGatewayRouter.sol';
 
 contract L1Issuance {
 
