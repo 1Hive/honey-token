@@ -1,6 +1,6 @@
 pragma solidity ^0.5.17;
 
-import '../Honey.sol';
+import './Honey.sol';
 import './arbitrum/ArbitrumInbox.sol';
 import './arbitrum/ArbitrumOutbox.sol';
 import './arbitrum/ArbitrumGatewayRouter.sol';
@@ -41,12 +41,12 @@ contract L1Issuance {
     }
 
     function updateGovernanceAddress(address _l2GovernanceAddress) external onlyGovernanceFromL2 {
-        GovernanceAddressUpdated(l2GovernanceAddress, _l2GovernanceAddress);
+        emit GovernanceAddressUpdated(l2GovernanceAddress, _l2GovernanceAddress);
         l2GovernanceAddress = _l2GovernanceAddress;
     }
 
     function updateIssuanceAddress(address _l2IssuanceAddress) external onlyGovernanceFromL2 {
-        IssuanceAddressUpdated(l2IssuanceAddress, _l2IssuanceAddress);
+        emit IssuanceAddressUpdated(l2IssuanceAddress, _l2IssuanceAddress);
         l2IssuanceAddress = _l2IssuanceAddress;
     }
 
@@ -64,7 +64,7 @@ contract L1Issuance {
         honey.changeIssuer(_issuer);
     }
 
-    function _getL2toL1Sender() internal returns (address) {
+    function _getL2toL1Sender() internal view returns (address) {
         ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumInbox.bridge().activeOutbox());
         return arbitrumOutbox.l2ToL1Sender();
     }
