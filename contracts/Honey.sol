@@ -28,6 +28,7 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     uint8 public constant decimals = 18;
 
     address public issuer;
+    address public gatewaySetter;
     ArbitrumGatewayRouter public gatewayRouter;
     address public gateway;
     uint256 public totalSupply;
@@ -42,16 +43,25 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
     event ChangeIssuer(address indexed issuer);
+    event ChangeGatewaySetter(address indexed gatewaySetter);
+    event ChangeGatewayRouter(address indexed gatewayRouter);
+    event ChangeGateway(address indexed gateway);
 
     modifier onlyIssuer {
         require(msg.sender == issuer, "HNY:NOT_ISSUER");
         _;
     }
 
-    constructor(address initialIssuer, ArbitrumGatewayRouter _gatewayRouter, address _gateway) public {
-        _changeIssuer(initialIssuer);
-        gatewayRouter = _gatewayRouter;
-        gateway = _gateway;
+    modifier onlyGatewaySetter {
+        require(msg.sender == gatewaySetter, "HNY:NOT_GATEWAY_SETTER");
+        _;
+    }
+
+    constructor(address _issuer, address _gatewaySetter, ArbitrumGatewayRouter _gatewayRouter, address _gateway) public {
+        _changeIssuer(_issuer);
+        _changeGatewaySetter(_gatewaySetter);
+        _changeGatewayRouter(_gatewayRouter);
+        _changeGateway(_gateway);
     }
 
     function _validateSignedData(address signer, bytes32 encodeData, uint8 v, bytes32 r, bytes32 s) internal view {
@@ -70,6 +80,21 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     function _changeIssuer(address newIssuer) internal {
         issuer = newIssuer;
         emit ChangeIssuer(newIssuer);
+    }
+
+    function _changeGatewaySetter(address newGatewaySetter) internal {
+        gatewaySetter = newGatewaySetter;
+        emit ChangeGatewaySetter(newGatewaySetter);
+    }
+
+    function _changeGatewayRouter(ArbitrumGatewayRouter newGatewayRouter) internal {
+        gatewayRouter = newGatewayRouter;
+        ChangeGatewayRouter(address(newGatewayRouter));
+    }
+
+    function _changeGateway(address newGateway) internal {
+        gateway = newGateway;
+        ChangeGateway(newGateway);
     }
 
     function _mint(address to, uint256 value) internal {
@@ -117,6 +142,18 @@ contract Honey is ArbitrumCustomToken, IERC20 {
 
     function changeIssuer(address newIssuer) external onlyIssuer {
         _changeIssuer(newIssuer);
+    }
+
+    function changeGatewaySetter(address newGatewaySetter) external onlyGatewaySetter {
+        _changeGatewaySetter(newGatewaySetter);
+    }
+
+    function changeGatewayRouter(ArbitrumGatewayRouter newGatewayRouter) external onlyGatewaySetter {
+        _changeGatewayRouter(newGatewayRouter);
+    }
+
+    function changeGateway(address newGateway) external onlyGatewaySetter {
+        _changeGateway(newGateway);
     }
 
     function mint(address to, uint256 value) external onlyIssuer returns (bool) {
