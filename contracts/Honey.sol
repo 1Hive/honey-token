@@ -4,6 +4,7 @@ import './token/IERC20.sol';
 import './token/SafeMath.sol';
 import './arbitrum/ArbitrumCustomToken.sol';
 import './arbitrum/ArbitrumGatewayRouter.sol';
+import './arbitrum/ArbitrumCustomGateway.sol';
 
 
 // Token copied from ANTv2: https://github.com/aragon/aragon-network-token/blob/master/packages/v2/contracts/ANTv2.sol
@@ -30,7 +31,8 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     address public issuer;
     address public gatewaySetter;
     ArbitrumGatewayRouter public gatewayRouter;
-    address public gateway;
+    ArbitrumCustomGateway public gateway;
+    uint256 public recentRetryableTxId;
     uint256 public totalSupply;
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -57,7 +59,7 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         _;
     }
 
-    constructor(address _issuer, address _gatewaySetter, ArbitrumGatewayRouter _gatewayRouter, address _gateway) public {
+    constructor(address _issuer, address _gatewaySetter, ArbitrumGatewayRouter _gatewayRouter, ArbitrumCustomGateway _gateway) public {
         _changeIssuer(_issuer);
         _changeGatewaySetter(_gatewaySetter);
         _changeGatewayRouter(_gatewayRouter);
@@ -89,12 +91,12 @@ contract Honey is ArbitrumCustomToken, IERC20 {
 
     function _changeGatewayRouter(ArbitrumGatewayRouter newGatewayRouter) internal {
         gatewayRouter = newGatewayRouter;
-        ChangeGatewayRouter(address(newGatewayRouter));
+        emit ChangeGatewayRouter(address(newGatewayRouter));
     }
 
-    function _changeGateway(address newGateway) internal {
+    function _changeGateway(ArbitrumCustomGateway newGateway) internal {
         gateway = newGateway;
-        ChangeGateway(newGateway);
+        emit ChangeGateway(address(newGateway));
     }
 
     function _mint(address to, uint256 value) internal {
@@ -152,7 +154,7 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         _changeGatewayRouter(newGatewayRouter);
     }
 
-    function changeGateway(address newGateway) external onlyGatewaySetter {
+    function changeGateway(ArbitrumCustomGateway newGateway) external onlyGatewaySetter {
         _changeGateway(newGateway);
     }
 
@@ -222,15 +224,16 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     }
 
     function registerTokenOnL2(
-        address l2CustomTokenAddress,
-        uint256 maxSubmissionCost,
-        uint256 maxGas,
-        uint256 gasPriceBid
-    ) external {
-        // TODO: Do we need this?
+        address _l2CustomTokenAddress,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        uint256 _maxSubmissionCost
+    ) external onlyGatewaySetter {
+        // TODO: Emit retryable tx id.
+        recentRetryableTxId = gateway.registerTokenToL2(_l2CustomTokenAddress, _maxGas, _gasPriceBid, _maxSubmissionCost);
     }
 
     function registerWithGatewayRouter(uint256 _maxGas, uint256 _gasPriceBid, uint256 _maxSubmissionCost) external {
-        gatewayRouter.setGateway(gateway, _maxGas, _gasPriceBid, _maxSubmissionCost);
+        recentRetryableTxId = gatewayRouter.setGateway(gateway, _maxGas, _gasPriceBid, _maxSubmissionCost);
     }
 }
