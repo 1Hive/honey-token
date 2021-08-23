@@ -48,6 +48,8 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     event ChangeGatewaySetter(address indexed gatewaySetter);
     event ChangeGatewayRouter(address indexed gatewayRouter);
     event ChangeGateway(address indexed gateway);
+    event RegisterWithGateway(uint256 retryableTransactionId);
+    event RegisterWithGatewayRouter(uint256 retryableTransactionId);
 
     modifier onlyIssuer {
         require(msg.sender == issuer, "HNY:NOT_ISSUER");
@@ -229,11 +231,13 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost
     ) external onlyGatewaySetter {
-        // TODO: Emit retryable tx id.
         recentRetryableTxId = gateway.registerTokenToL2(_l2CustomTokenAddress, _maxGas, _gasPriceBid, _maxSubmissionCost);
+        emit RegisterWithGateway(recentRetryableTxId);
     }
 
+    // TODO: Should this be restricted?
     function registerWithGatewayRouter(uint256 _maxGas, uint256 _gasPriceBid, uint256 _maxSubmissionCost) external {
         recentRetryableTxId = gatewayRouter.setGateway(gateway, _maxGas, _gasPriceBid, _maxSubmissionCost);
+        emit RegisterWithGatewayRouter(recentRetryableTxId);
     }
 }

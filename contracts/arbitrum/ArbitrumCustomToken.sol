@@ -23,7 +23,7 @@ pragma solidity ^0.5.17;
  */
 interface ArbitrumCustomToken {
     /**
-     * @notice Should make an external call to EthERC20Bridge.registerCustomL2Token
+     * @notice Should make an external call to EthERC20Bridge.registerTokenOnL2
      */
     function registerTokenOnL2(
         address l2CustomTokenAddress,
