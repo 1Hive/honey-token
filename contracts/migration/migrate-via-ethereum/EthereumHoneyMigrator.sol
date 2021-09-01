@@ -1,6 +1,6 @@
 pragma solidity ^0.5.17;
 
-import '../token/IERC20.sol';
+import '../../token/IERC20.sol';
 import './arbitrary-message-bridge/ForeignAmb.sol';
 
 contract EthereumHoneyMigrator {

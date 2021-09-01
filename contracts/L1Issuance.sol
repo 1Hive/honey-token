@@ -7,6 +7,8 @@ import './arbitrum/ArbitrumGatewayRouter.sol';
 
 contract L1Issuance {
 
+    address public constant NOT_CALLED_FROM_BRIDGE_ADDRESS = address(1);
+
     Honey public honey;
     address public l2IssuanceAddress;
     address public l2GovernanceAddress;
@@ -16,8 +18,10 @@ contract L1Issuance {
     event IssuanceAddressUpdated(address oldAddress, address newAddress);
     event GovernanceAddressUpdated(address oldAddress, address newAddress);
 
+    // TODO: remove msg.sender backup governor or ensure that the l2GovernanceAddress cannot be created as a contract
+    // using the EOA that created the L2 Governor on the L1.
     modifier onlyGovernanceFromL2 {
-        require(_getL2toL1Sender() == l2GovernanceAddress, "ERROR: Not governance");
+        require(_getL2toL1Sender() == l2GovernanceAddress || msg.sender == l2GovernanceAddress, "ERROR: Not governance");
         _;
     }
 
@@ -66,6 +70,6 @@ contract L1Issuance {
 
     function _getL2toL1Sender() internal view returns (address) {
         ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumInbox.bridge().activeOutbox());
-        return arbitrumOutbox.l2ToL1Sender();
+        return address(arbitrumOutbox) == address(0) ? NOT_CALLED_FROM_BRIDGE_ADDRESS : arbitrumOutbox.l2ToL1Sender();
     }
 }
