@@ -226,7 +226,9 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         _transfer(from, to, value);
     }
 
-    /// @notice should return `0xa4b1` if token is enabled for arbitrum gateways
+    /**
+    * @dev Only callable during registerTokenOnL2() function. Should return `0xa4b1` if token is enabled for arbitrum gateways
+    */
     function isArbitrumEnabled() external view returns (uint8) {
         require(shouldRegisterGateway, "HNY:NOT_EXPECTED_CALL");
         return uint8(0xa4b1);

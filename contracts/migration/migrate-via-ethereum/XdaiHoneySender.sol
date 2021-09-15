@@ -3,7 +3,7 @@ pragma solidity ^0.5.17;
 import '../../token/IERC20.sol';
 import './arbitrary-message-bridge/HomeAmb.sol';
 
-contract XdaiHoneyMigrator {
+contract XdaiHoneySender {
 
     uint256 public constant MAX_CALL_GAS = 300000;
     address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
