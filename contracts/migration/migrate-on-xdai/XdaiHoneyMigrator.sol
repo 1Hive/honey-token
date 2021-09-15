@@ -23,6 +23,7 @@ contract XdaiHoneyMigrator {
 
     function migrateHoneyV1ToHoneyV2(address _receivingAddress) public {
         uint256 honeyV1Balance = honeyV1.balanceOf(msg.sender);
+        require(honeyV1Balance > 0, "MIGRATOR: No HoneyV1");
         uint256 honeyV2Balance = honeyV1Balance.mul(multiplier);
 
         require(honeyV1.transferFrom(msg.sender, BURN_ADDRESS, honeyV1Balance), "MIGRATOR: Transfer from failed");
