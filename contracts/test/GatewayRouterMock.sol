@@ -1,14 +1,16 @@
 pragma solidity ^0.5.17;
 
-contract GatewayRouterMock {
+import "../arbitrum/interfaces/ArbitrumGatewayRouter.sol";
 
-    address public gateway;
+contract GatewayRouterMock is ArbitrumGatewayRouter {
+
+    ArbitrumCustomGateway public gateway;
     uint256 public maxGas;
     uint256 public gasPriceBid;
     uint256 public maxSubmissionCost;
 
     function setGateway(
-        address _gateway,
+        ArbitrumCustomGateway _gateway,
         uint256 _maxGas,
         uint256 _gasPriceBid,
         uint256 _maxSubmissionCost

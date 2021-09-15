@@ -2,9 +2,9 @@ pragma solidity 0.5.17;
 
 import './token/IERC20.sol';
 import './token/SafeMath.sol';
-import './arbitrum/ArbitrumCustomToken.sol';
-import './arbitrum/ArbitrumGatewayRouter.sol';
-import './arbitrum/ArbitrumCustomGateway.sol';
+import './arbitrum/interfaces/ArbitrumCustomToken.sol';
+import './arbitrum/interfaces/ArbitrumGatewayRouter.sol';
+import './arbitrum/interfaces/ArbitrumCustomGateway.sol';
 
 
 // Token copied from ANTv2: https://github.com/aragon/aragon-network-token/blob/master/packages/v2/contracts/ANTv2.sol
@@ -32,6 +32,7 @@ contract Honey is ArbitrumCustomToken, IERC20 {
     address public gatewaySetter;
     ArbitrumGatewayRouter public gatewayRouter;
     ArbitrumCustomGateway public gateway;
+    bool public shouldRegisterGateway;
     uint256 public recentRetryableTxId;
     uint256 public totalSupply;
     mapping (address => uint256) public balanceOf;
@@ -225,13 +226,26 @@ contract Honey is ArbitrumCustomToken, IERC20 {
         _transfer(from, to, value);
     }
 
+    /// @notice should return `0xa4b1` if token is enabled for arbitrum gateways
+    function isArbitrumEnabled() external view returns (uint8) {
+        require(shouldRegisterGateway, "HNY:NOT_EXPECTED_CALL");
+        return uint8(0xa4b1);
+    }
+
     function registerTokenOnL2(
         address _l2CustomTokenAddress,
+        uint256 _maxSubmissionCost,
         uint256 _maxGas,
         uint256 _gasPriceBid,
-        uint256 _maxSubmissionCost
+        address _creditBackAddress
     ) external onlyGatewaySetter {
-        recentRetryableTxId = gateway.registerTokenToL2(_l2CustomTokenAddress, _maxGas, _gasPriceBid, _maxSubmissionCost);
+        // we temporarily set `shouldRegisterGateway` to true for the callback in registerTokenToL2 to succeed
+        bool prev = shouldRegisterGateway;
+        shouldRegisterGateway = true;
+
+        recentRetryableTxId = gateway.registerTokenToL2(_l2CustomTokenAddress, _maxSubmissionCost, _maxGas, _gasPriceBid, _creditBackAddress);
+
+        shouldRegisterGateway = prev;
         emit RegisterWithGateway(recentRetryableTxId);
     }
 

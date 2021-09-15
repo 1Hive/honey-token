@@ -12,7 +12,7 @@ const Honey = artifacts.require('Honey')
 const Gateway = artifacts.require('GatewayMock')
 const GatewayRouter = artifacts.require('GatewayRouterMock')
 
-contract('Honey', ([_, issuer, newIssuer, holder1, holder2, newHolder, gatewaySetter, hnyl2]) => {
+contract('Honey', ([_, issuer, newIssuer, holder1, holder2, newHolder, gatewaySetter, hnyl2, creditBackAddress]) => {
   let hny, gateway, gatewayRouter
 
   async function itTransfersCorrectly(fn, { from, to, value }) {
@@ -383,22 +383,29 @@ contract('Honey', ([_, issuer, newIssuer, holder1, holder2, newHolder, gatewaySe
       })
     })
 
+    context('is arbitrum enabled', () => {
+      it('reverts when not called from registerTokenOnL2() function', async () => {
+        await assertRevert(hny.isArbitrumEnabled(), "HNY:NOT_EXPECTED_CALL")
+      })
+    })
+
     context('register with gateway', () => {
       it('calls correct function', async () => {
         const maxGas = 111
         const gasPriceBid = 222
         const maxSubmissionCost = 333
 
-        await hny.registerTokenOnL2(hnyl2, maxGas, gasPriceBid, maxSubmissionCost, {from: gatewaySetter})
+        await hny.registerTokenOnL2(hnyl2, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress, {from: gatewaySetter})
 
         assert.equal(await gateway.l2Address(), hnyl2)
         assert.equal(await gateway.maxGas(), maxGas)
         assert.equal(await gateway.gasPriceBid(), gasPriceBid)
         assert.equal(await gateway.maxSubmissionCost(), maxSubmissionCost)
+        assert.equal(await gateway.creditBackAddress(), creditBackAddress)
       })
 
       it('reverts when not gateway setter', async () => {
-        await assertRevert(hny.registerTokenOnL2(hnyl2, 111, 222, 333),'HNY:NOT_GATEWAY_SETTER')
+        await assertRevert(hny.registerTokenOnL2(hnyl2, 111, 222, 333, creditBackAddress),'HNY:NOT_GATEWAY_SETTER')
       })
     })
 

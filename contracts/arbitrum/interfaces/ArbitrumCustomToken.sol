@@ -27,12 +27,16 @@ interface ArbitrumCustomToken {
      */
     function registerTokenOnL2(
         address l2CustomTokenAddress,
+        uint256 maxSubmissionCost,
         uint256 maxGas,
         uint256 gasPriceBid,
-        uint256 maxSubmissionCost
+        address creditBackAddress
     ) external;
 
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
 
     function balanceOf(address account) external view returns (uint256);
+
+    /// @notice should return `0xa4b1` if token is enabled for arbitrum gateways
+    function isArbitrumEnabled() external view returns (uint8);
 }

@@ -1,18 +1,14 @@
 pragma solidity ^0.5.17;
 
-import './Honey.sol';
-import './arbitrum/ArbitrumInbox.sol';
-import './arbitrum/ArbitrumOutbox.sol';
-import './arbitrum/ArbitrumGatewayRouter.sol';
+import '../Honey.sol';
+import './interfaces/ArbitrumGatewayRouter.sol';
+import "./ArbitrumBridgeRestriction.sol";
 
-contract L1Issuance {
-
-    address public constant NOT_CALLED_FROM_BRIDGE_ADDRESS = address(1);
+contract ArbitrumBridgeReceiver is ArbitrumBridgeRestriction {
 
     Honey public honey;
     address public l2IssuanceAddress;
     address public l2GovernanceAddress;
-    ArbitrumInbox public arbitrumInbox;
     ArbitrumGatewayRouter public arbitrumGatewayRouter;
 
     event IssuanceAddressUpdated(address oldAddress, address newAddress);
@@ -36,11 +32,10 @@ contract L1Issuance {
         address _l2GovernanceAddress,
         ArbitrumInbox _arbitrumInbox,
         ArbitrumGatewayRouter _arbitrumGatewayRouter
-    ) public {
+    ) ArbitrumBridgeRestriction(_arbitrumInbox) public {
         honey = _honey;
         l2IssuanceAddress = _l2IssuanceAddress;
         l2GovernanceAddress = _l2GovernanceAddress;
-        arbitrumInbox = _arbitrumInbox;
         arbitrumGatewayRouter = _arbitrumGatewayRouter;
     }
 
@@ -68,8 +63,15 @@ contract L1Issuance {
         honey.changeIssuer(_issuer);
     }
 
-    function _getL2toL1Sender() internal view returns (address) {
-        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumInbox.bridge().activeOutbox());
-        return address(arbitrumOutbox) == address(0) ? NOT_CALLED_FROM_BRIDGE_ADDRESS : arbitrumOutbox.l2ToL1Sender();
+    function changeHoneyGatewaySetter(address _gatewaySetter) external onlyGovernanceFromL2 {
+        honey.changeGatewaySetter(_gatewaySetter);
+    }
+
+    function changeHoneyGatewayRouter(ArbitrumGatewayRouter _gatewayRouter) external onlyGovernanceFromL2 {
+        honey.changeGatewayRouter(_gatewayRouter);
+    }
+
+    function changeHoneyGateway(ArbitrumCustomGateway _gateway) external onlyGovernanceFromL2 {
+        honey.changeGateway(_gateway);
     }
 }
