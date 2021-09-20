@@ -27,7 +27,7 @@ contract XdaiHoneyMigrator {
         uint256 honeyV2Balance = honeyV1Balance.mul(multiplier);
 
         require(honeyV1.transferFrom(msg.sender, BURN_ADDRESS, honeyV1Balance), "MIGRATOR: Transfer from failed");
-        require(honeyV2.transfer(msg.sender, honeyV2Balance), "MIGRATOR: Transfer failed");
+        require(honeyV2.transfer(_receivingAddress, honeyV2Balance), "MIGRATOR: Transfer failed");
 
         emit HoneyMigrated(msg.sender, _receivingAddress, honeyV1Balance, honeyV2Balance);
     }
