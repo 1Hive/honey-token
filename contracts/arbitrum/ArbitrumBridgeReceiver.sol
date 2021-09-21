@@ -4,6 +4,7 @@ import '../Honey.sol';
 import './interfaces/ArbitrumGatewayRouter.sol';
 import './interfaces/ArbitrumInbox.sol';
 import './interfaces/ArbitrumOutbox.sol';
+import './interfaces/ArbitrumBridge.sol';
 
 contract ArbitrumBridgeReceiver {
 
@@ -19,15 +20,14 @@ contract ArbitrumBridgeReceiver {
     event GovernanceAddressUpdated(address oldAddress, address newAddress);
     event ArbitrumInboxUpdated(ArbitrumInbox oldInbox, ArbitrumInbox newInbox);
 
-    // TODO: remove msg.sender backup governor or ensure that the l2GovernanceAddress cannot be created as a contract
-    // using the EOA that created the L2 Governor on the L1.
+    // TODO: remove msg.sender backup governor for mainnet/final testing
     modifier onlyGovernanceFromL2 {
-        require(_getL2toL1Sender() == l2GovernanceAddress || msg.sender == l2GovernanceAddress, "ERROR: Not governance");
+        require(_getL2ToL1Sender() == l2GovernanceAddress || msg.sender == l2GovernanceAddress, "ERR:NOT_GOVERNANCE");
         _;
     }
 
     modifier onlyIssuanceFromL2 {
-        require(_getL2toL1Sender() == l2IssuanceAddress, "ERROR: Not issuance");
+        require(_getL2ToL1Sender() == l2IssuanceAddress, "ERR:NOT_ISSUANCE");
         _;
     }
 
@@ -86,8 +86,31 @@ contract ArbitrumBridgeReceiver {
         honey.burn(honeyGateway, _amount);
     }
 
-    function _getL2toL1Sender() internal view returns (address) {
-        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumInbox.bridge().activeOutbox());
-        return address(arbitrumOutbox) == address(0) ? NOT_CALLED_FROM_BRIDGE_ADDRESS : arbitrumOutbox.l2ToL1Sender();
+    // TODO: Replace with commented function below for mainnet/final testing, when requiring calling from bridge
+    function _getL2ToL1Sender() internal view returns (address) {
+        ArbitrumBridge arbitrumBridge = arbitrumInbox.bridge();
+
+        // TODO: This allows us to call not from the bridge for easier testing
+        if (address(arbitrumBridge) != msg.sender) {
+            return NOT_CALLED_FROM_BRIDGE_ADDRESS;
+        }
+
+        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumBridge.activeOutbox());
+        address l2ToL1Sender = arbitrumOutbox.l2ToL1Sender();
+
+        require(l2ToL1Sender != address(0), "ERR:NO_SENDER");
+        return l2ToL1Sender;
     }
+
+    // @dev the l2ToL1Sender behaves as the tx.origin, the msg.sender should be validated to protect against reentrancies
+//    function _getL2ToL1Sender() internal view returns (address) {
+//        ArbitrumBridge arbitrumBridge = arbitrumInbox.bridge();
+//        require(address(arbitrumBridge) == msg.sender, "ERR:NOT_FROM_BRIDGE");
+//
+//        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumBridge.activeOutbox());
+//        address l2ToL1Sender = arbitrumOutbox.l2ToL1Sender();
+//
+//        require(l2ToL1Sender != address(0), "ERR:NO_SENDER");
+//        return l2ToL1Sender;
+//    }
 }
