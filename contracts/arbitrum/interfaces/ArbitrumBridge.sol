@@ -1,7 +1,9 @@
 pragma solidity ^0.5.17;
 
+import "./ArbitrumOutbox.sol";
+
 contract ArbitrumBridge {
 
-    address public activeOutbox;
+    ArbitrumOutbox public activeOutbox;
 
 }
