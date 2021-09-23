@@ -21,8 +21,13 @@ contract ArbitrumBridgeReceiver {
     event ArbitrumInboxUpdated(ArbitrumInbox oldInbox, ArbitrumInbox newInbox);
 
     // TODO: remove msg.sender backup governor for mainnet/final testing
+//    modifier onlyGovernanceFromL2 {
+//        require(_getL2ToL1Sender() == l2GovernanceAddress || msg.sender == l2GovernanceAddress, "ERR:NOT_GOVERNANCE");
+//        _;
+//    }
+
     modifier onlyGovernanceFromL2 {
-        require(_getL2ToL1Sender() == l2GovernanceAddress || msg.sender == l2GovernanceAddress, "ERR:NOT_GOVERNANCE");
+        require(_getL2ToL1Sender() == l2GovernanceAddress, "ERR:NOT_GOVERNANCE");
         _;
     }
 
@@ -87,25 +92,13 @@ contract ArbitrumBridgeReceiver {
     }
 
     // TODO: Replace with commented function below for mainnet/final testing, when requiring calling from bridge
-    function _getL2ToL1Sender() internal view returns (address) {
-        ArbitrumBridge arbitrumBridge = arbitrumInbox.bridge();
-
-        // TODO: This allows us to call not from the bridge for easier testing
-        if (address(arbitrumBridge) != msg.sender) {
-            return NOT_CALLED_FROM_BRIDGE_ADDRESS;
-        }
-
-        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumBridge.activeOutbox());
-        address l2ToL1Sender = arbitrumOutbox.l2ToL1Sender();
-
-        require(l2ToL1Sender != address(0), "ERR:NO_SENDER");
-        return l2ToL1Sender;
-    }
-
-    // @dev the l2ToL1Sender behaves as the tx.origin, the msg.sender should be validated to protect against reentrancies
 //    function _getL2ToL1Sender() internal view returns (address) {
 //        ArbitrumBridge arbitrumBridge = arbitrumInbox.bridge();
-//        require(address(arbitrumBridge) == msg.sender, "ERR:NOT_FROM_BRIDGE");
+//
+//        // TODO: This allows us to call not from the bridge for easier testing
+//        if (address(arbitrumBridge) != msg.sender) {
+//            return NOT_CALLED_FROM_BRIDGE_ADDRESS;
+//        }
 //
 //        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumBridge.activeOutbox());
 //        address l2ToL1Sender = arbitrumOutbox.l2ToL1Sender();
@@ -113,4 +106,16 @@ contract ArbitrumBridgeReceiver {
 //        require(l2ToL1Sender != address(0), "ERR:NO_SENDER");
 //        return l2ToL1Sender;
 //    }
+
+    // @dev the l2ToL1Sender behaves as the tx.origin, the msg.sender should be validated to protect against reentrancies
+    function _getL2ToL1Sender() internal view returns (address) {
+        ArbitrumBridge arbitrumBridge = arbitrumInbox.bridge();
+        require(address(arbitrumBridge) == msg.sender, "ERR:NOT_FROM_BRIDGE");
+
+        ArbitrumOutbox arbitrumOutbox = ArbitrumOutbox(arbitrumBridge.activeOutbox());
+        address l2ToL1Sender = arbitrumOutbox.l2ToL1Sender();
+
+        require(l2ToL1Sender != address(0), "ERR:NO_SENDER");
+        return l2ToL1Sender;
+    }
 }
