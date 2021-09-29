@@ -1,11 +1,14 @@
 pragma solidity 0.5.17;
 
-import './IERC20.sol';
-import './SafeMath.sol';
+import './token/IERC20.sol';
+import './token/SafeMath.sol';
+import './arbitrum/interfaces/ArbitrumCustomToken.sol';
+import './arbitrum/interfaces/ArbitrumGatewayRouter.sol';
+import './arbitrum/interfaces/ArbitrumCustomGateway.sol';
 
 
 // Token copied from ANTv2: https://github.com/aragon/aragon-network-token/blob/master/packages/v2/contracts/ANTv2.sol
-contract Honey is IERC20 {
+contract Honey is ArbitrumCustomToken, IERC20 {
     using SafeMath for uint256;
 
     // bytes32 private constant EIP712DOMAIN_HASH = keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
@@ -25,7 +28,12 @@ contract Honey is IERC20 {
     string public constant symbol = "HNY";
     uint8 public constant decimals = 18;
 
-    address public minter;
+    address public issuer;
+    address public gatewaySetter;
+    ArbitrumGatewayRouter public gatewayRouter;
+    ArbitrumCustomGateway public gateway;
+    bool public shouldRegisterGateway;
+    uint256 public recentRetryableTxId;
     uint256 public totalSupply;
     mapping (address => uint256) public balanceOf;
     mapping (address => mapping (address => uint256)) public allowance;
@@ -37,15 +45,28 @@ contract Honey is IERC20 {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
     event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
-    event ChangeMinter(address indexed minter);
+    event ChangeIssuer(address indexed issuer);
+    event ChangeGatewaySetter(address indexed gatewaySetter);
+    event ChangeGatewayRouter(address indexed gatewayRouter);
+    event ChangeGateway(address indexed gateway);
+    event RegisterWithGateway(uint256 retryableTransactionId);
+    event RegisterWithGatewayRouter(uint256 retryableTransactionId);
 
-    modifier onlyMinter {
-        require(msg.sender == minter, "HNY:NOT_MINTER");
+    modifier onlyIssuer {
+        require(msg.sender == issuer, "HNY:NOT_ISSUER");
         _;
     }
 
-    constructor(address initialMinter) public {
-        _changeMinter(initialMinter);
+    modifier onlyGatewaySetter {
+        require(msg.sender == gatewaySetter, "HNY:NOT_GATEWAY_SETTER");
+        _;
+    }
+
+    constructor(address _issuer, address _gatewaySetter, ArbitrumGatewayRouter _gatewayRouter, ArbitrumCustomGateway _gateway) public {
+        _changeIssuer(_issuer);
+        _changeGatewaySetter(_gatewaySetter);
+        _changeGatewayRouter(_gatewayRouter);
+        _changeGateway(_gateway);
     }
 
     function _validateSignedData(address signer, bytes32 encodeData, uint8 v, bytes32 r, bytes32 s) internal view {
@@ -61,9 +82,24 @@ contract Honey is IERC20 {
         require(recoveredAddress != address(0) && recoveredAddress == signer, "HNY:INVALID_SIGNATURE");
     }
 
-    function _changeMinter(address newMinter) internal {
-        minter = newMinter;
-        emit ChangeMinter(newMinter);
+    function _changeIssuer(address newIssuer) internal {
+        issuer = newIssuer;
+        emit ChangeIssuer(newIssuer);
+    }
+
+    function _changeGatewaySetter(address newGatewaySetter) internal {
+        gatewaySetter = newGatewaySetter;
+        emit ChangeGatewaySetter(newGatewaySetter);
+    }
+
+    function _changeGatewayRouter(ArbitrumGatewayRouter newGatewayRouter) internal {
+        gatewayRouter = newGatewayRouter;
+        emit ChangeGatewayRouter(address(newGatewayRouter));
+    }
+
+    function _changeGateway(ArbitrumCustomGateway newGateway) internal {
+        gateway = newGateway;
+        emit ChangeGateway(address(newGateway));
     }
 
     function _mint(address to, uint256 value) internal {
@@ -109,17 +145,29 @@ contract Honey is IERC20 {
         );
     }
 
-    function mint(address to, uint256 value) external onlyMinter returns (bool) {
+    function changeIssuer(address newIssuer) external onlyIssuer {
+        _changeIssuer(newIssuer);
+    }
+
+    function changeGatewaySetter(address newGatewaySetter) external onlyGatewaySetter {
+        _changeGatewaySetter(newGatewaySetter);
+    }
+
+    function changeGatewayRouter(ArbitrumGatewayRouter newGatewayRouter) external onlyGatewaySetter {
+        _changeGatewayRouter(newGatewayRouter);
+    }
+
+    function changeGateway(ArbitrumCustomGateway newGateway) external onlyGatewaySetter {
+        _changeGateway(newGateway);
+    }
+
+    function mint(address to, uint256 value) external onlyIssuer returns (bool) {
         _mint(to, value);
         return true;
     }
 
-    function changeMinter(address newMinter) external onlyMinter {
-        _changeMinter(newMinter);
-    }
-
-    function burn(uint256 value) external returns (bool) {
-        _burn(msg.sender, value);
+    function burn(address from, uint256 value) external onlyIssuer returns (bool) {
+        _burn(from, value);
         return true;
     }
 
@@ -176,5 +224,36 @@ contract Honey is IERC20 {
         emit AuthorizationUsed(from, nonce);
 
         _transfer(from, to, value);
+    }
+
+    /**
+    * @dev Only callable during registerTokenOnL2() function. Should return `0xa4b1` if token is enabled for arbitrum gateways
+    */
+    function isArbitrumEnabled() external view returns (uint8) {
+        require(shouldRegisterGateway, "HNY:NOT_EXPECTED_CALL");
+        return uint8(0xa4b1);
+    }
+
+    function registerTokenOnL2(
+        address _l2CustomTokenAddress,
+        uint256 _maxSubmissionCost,
+        uint256 _maxGas,
+        uint256 _gasPriceBid,
+        address _creditBackAddress
+    ) external onlyGatewaySetter {
+        // we temporarily set `shouldRegisterGateway` to true for the callback in registerTokenToL2 to succeed
+        bool prev = shouldRegisterGateway;
+        shouldRegisterGateway = true;
+
+        recentRetryableTxId = gateway.registerTokenToL2(_l2CustomTokenAddress, _maxSubmissionCost, _maxGas, _gasPriceBid, _creditBackAddress);
+
+        shouldRegisterGateway = prev;
+        emit RegisterWithGateway(recentRetryableTxId);
+    }
+
+    // TODO: Should this be restricted?
+    function registerWithGatewayRouter(uint256 _maxGas, uint256 _gasPriceBid, uint256 _maxSubmissionCost) external {
+        recentRetryableTxId = gatewayRouter.setGateway(gateway, _maxGas, _gasPriceBid, _maxSubmissionCost);
+        emit RegisterWithGatewayRouter(recentRetryableTxId);
     }
 }

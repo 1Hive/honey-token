@@ -9,9 +9,11 @@ const { createTransferWithAuthorizationDigest, TRANSFER_WITH_AUTHORIZATION_TYPEH
 const { tokenAmount } = require('./helpers/tokens')
 
 const Honey = artifacts.require('Honey')
+const Gateway = artifacts.require('GatewayMock')
+const GatewayRouter = artifacts.require('GatewayRouterMock')
 
-contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
-  let hny
+contract('Honey', ([_, issuer, newIssuer, holder1, holder2, newHolder, gatewaySetter, hnyl2, creditBackAddress]) => {
+  let hny, gateway, gatewayRouter
 
   async function itTransfersCorrectly(fn, { from, to, value }) {
     const isMint = from === ZERO_ADDRESS
@@ -46,10 +48,12 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
   }
 
   beforeEach('deploy Honey', async () => {
-    hny = await Honey.new(minter)
+    gateway = await Gateway.new()
+    gatewayRouter = await GatewayRouter.new()
+    hny = await Honey.new(issuer, gatewaySetter, gatewayRouter.address, gateway.address)
 
-    await hny.mint(holder1, tokenAmount(100), { from: minter })
-    await hny.mint(holder2, tokenAmount(200), { from: minter })
+    await hny.mint(holder1, tokenAmount(100), { from: issuer })
+    await hny.mint(holder2, tokenAmount(200), { from: issuer })
   })
 
   it('set up the token correctly', async () => {
@@ -57,16 +61,21 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
     assert.equal(await hny.symbol(), 'HNY', 'token: symbol')
     assert.equal(await hny.decimals(), '18', 'token: decimals')
 
+    assert.equal(await hny.issuer(), issuer)
+    assert.equal(await hny.gatewaySetter(), gatewaySetter)
+    assert.equal(await hny.gatewayRouter(), gatewayRouter.address)
+    assert.equal(await hny.gateway(), gateway.address)
+
     assertBn(await hny.totalSupply(), tokenAmount(300))
     assertBn(await hny.balanceOf(holder1), tokenAmount(100))
     assertBn(await hny.balanceOf(holder2), tokenAmount(200))
   })
 
   context('mints', () => {
-    context('is minter', () => {
+    context('is issuer', () => {
       it('can mint tokens', async () => {
         await itTransfersCorrectly(
-          (_, to, value) => hny.mint(to, value, { from: minter }),
+          (_, to, value) => hny.mint(to, value, { from: issuer }),
           {
             from: ZERO_ADDRESS,
             to: newHolder,
@@ -75,21 +84,21 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
         )
       })
 
-      it('can change minter', async () => {
-        const receipt = await hny.changeMinter(newMinter, { from: minter })
+      it('can change issuer', async () => {
+        const receipt = await hny.changeIssuer(newIssuer, { from: issuer })
 
-        assert.equal(await hny.minter(), newMinter, 'minter: changed')
-        assertEvent(receipt, 'ChangeMinter', { expectedArgs: { minter: newMinter } })
+        assert.equal(await hny.issuer(), newIssuer, 'issuer: changed')
+        assertEvent(receipt, 'ChangeIssuer', { expectedArgs: { issuer: newIssuer } })
       })
     })
 
-    context('not minter', () => {
+    context('not issuer', () => {
       it('cannot mint tokens', async () => {
-        await assertRevert(hny.mint(newHolder, tokenAmount(100), { from: holder1 }), 'HNY:NOT_MINTER')
+        await assertRevert(hny.mint(newHolder, tokenAmount(100), { from: holder1 }), 'HNY:NOT_ISSUER')
       })
 
-      it('cannot change minter', async () => {
-        await assertRevert(hny.changeMinter(newMinter, { from: holder1 }), 'HNY:NOT_MINTER')
+      it('cannot change issuer', async () => {
+        await assertRevert(hny.changeIssuer(newIssuer, { from: holder1 }), 'HNY:NOT_ISSUER')
       })
     })
   })
@@ -266,7 +275,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
     context('holds bag', () => {
       it('can burn tokens', async () => {
         await itTransfersCorrectly(
-          (from, to, value) => hny.burn(value, { from }),
+          (from, to, value) => hny.burn(from, value, { from: issuer }),
           {
             from: holder1,
             to: ZERO_ADDRESS,
@@ -277,7 +286,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
 
       it('can burn all tokens', async () => {
         await itTransfersCorrectly(
-          (from, to, value) => hny.burn(value, { from }),
+          (from, to, value) => hny.burn(from, value, { from: issuer }),
           {
             from: holder1,
             to: ZERO_ADDRESS,
@@ -288,7 +297,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
 
       it('cannot burn above balance', async () => {
         await assertRevert(
-          hny.burn((await hny.balanceOf(holder1)).add(bn('1')), { from: holder1 }),
+          hny.burn(holder1, (await hny.balanceOf(holder1)).add(bn('1')), { from: issuer }),
           'MATH:SUB_UNDERFLOW'
         )
       })
@@ -297,7 +306,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
     context('bagless', () => {
       it('cannot burn any', async () => {
         await assertRevert(
-          hny.burn(bn('1'), { from: newHolder }),
+          hny.burn(newHolder, bn('1'), { from: issuer }),
           'MATH:SUB_UNDERFLOW'
         )
       })
@@ -305,7 +314,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
 
     it('can burn all tokens', async () => {
       await itTransfersCorrectly(
-        (from, to, value) => hny.burn(value, { from }),
+        (from, to, value) => hny.burn(from, value, { from: issuer }),
         {
           from: holder1,
           to: ZERO_ADDRESS,
@@ -313,7 +322,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
         }
       )
       await itTransfersCorrectly(
-        (from, to, value) => hny.burn(value, { from }),
+        (from, to, value) => hny.burn(from, value, { from: issuer }),
         {
           from: holder2,
           to: ZERO_ADDRESS,
@@ -322,6 +331,97 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
       )
 
       assertBn(await hny.totalSupply(), 0, 'burn: no total supply')
+    })
+
+    it('issuer can burn others token', async () => {
+      const burnAmount = bn(40)
+      const previousBalance = await hny.balanceOf(holder1)
+      const previousSupply = await hny.totalSupply()
+
+      await hny.burn(holder1, burnAmount, { from: issuer })
+
+      assertBn(await hny.balanceOf(holder1), previousBalance.sub(burnAmount), "Incorrect user balance")
+      assertBn(await hny.totalSupply(), previousSupply.sub(burnAmount), "Incorrect total supply")
+    })
+
+    it('nonissuer can not burn others tokens', async () => {
+      await assertRevert(hny.burn(holder2, 40, { from: holder1 }), "HNY:NOT_ISSUER")
+    })
+  })
+
+  context('register with L2', () => {
+    context('changeGatewaySetter(address newGatewaySetter)', () => {
+      it('reverts when not called by gateway setter', async () => {
+        await assertRevert(hny.changeGatewaySetter(holder1, { from: holder1 }), "HNY:NOT_GATEWAY_SETTER")
+      })
+
+      it('updates the gateway setter', async () => {
+        await hny.changeGatewaySetter(holder1, {from: gatewaySetter })
+        assert.equal(await hny.gatewaySetter(), holder1)
+      })
+    })
+
+    context('changeGatewayRouter(address newGatewayRouter)', () => {
+      it('reverts when not called by gateway setter', async () => {
+        await assertRevert(hny.changeGatewayRouter(holder1, { from: holder1 }), "HNY:NOT_GATEWAY_SETTER")
+      })
+
+      it('updates the gateway router', async () => {
+        await hny.changeGatewayRouter(holder1, {from: gatewaySetter })
+        assert.equal(await hny.gatewayRouter(), holder1)
+      })
+    })
+
+    context('changeGateway(address newGateway)', () => {
+      it('reverts when not called by gateway setter', async () => {
+        await assertRevert(hny.changeGateway(holder1, { from: holder1 }), "HNY:NOT_GATEWAY_SETTER")
+      })
+
+      it('updates the gateway', async () => {
+        await hny.changeGateway(holder1, {from: gatewaySetter })
+        assert.equal(await hny.gateway(), holder1)
+      })
+    })
+
+    context('is arbitrum enabled', () => {
+      it('reverts when not called from registerTokenOnL2() function', async () => {
+        await assertRevert(hny.isArbitrumEnabled(), "HNY:NOT_EXPECTED_CALL")
+      })
+    })
+
+    context('register with gateway', () => {
+      it('calls correct function', async () => {
+        const maxGas = 111
+        const gasPriceBid = 222
+        const maxSubmissionCost = 333
+
+        await hny.registerTokenOnL2(hnyl2, maxGas, gasPriceBid, maxSubmissionCost, creditBackAddress, {from: gatewaySetter})
+
+        assert.equal(await gateway.l2Address(), hnyl2)
+        assert.equal(await gateway.maxGas(), maxGas)
+        assert.equal(await gateway.gasPriceBid(), gasPriceBid)
+        assert.equal(await gateway.maxSubmissionCost(), maxSubmissionCost)
+        assert.equal(await gateway.creditBackAddress(), creditBackAddress)
+      })
+
+      it('reverts when not gateway setter', async () => {
+        await assertRevert(hny.registerTokenOnL2(hnyl2, 111, 222, 333, creditBackAddress),'HNY:NOT_GATEWAY_SETTER')
+      })
+    })
+
+    context('register with gateway router', () => {
+      it('calls correct function', async () => {
+        const maxGas = 111
+        const gasPriceBid = 222
+        const maxSubmissionCost = 333
+
+        await hny.registerWithGatewayRouter(maxGas, gasPriceBid, maxSubmissionCost)
+
+        assert.equal(await gatewayRouter.gateway(), gateway.address)
+        assert.equal(await gatewayRouter.maxGas(), maxGas)
+        assert.equal(await gatewayRouter.gasPriceBid(), gasPriceBid)
+        assert.equal(await gatewayRouter.maxSubmissionCost(), maxSubmissionCost)
+      })
     })
   })
 
@@ -359,7 +459,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
     })
 
     beforeEach(async () => {
-      await hny.mint(owner, tokenAmount(50), { from: minter })
+      await hny.mint(owner, tokenAmount(50), { from: issuer })
     })
 
     it('has the correct permit typehash', async () => {
@@ -451,7 +551,7 @@ contract('Honey', ([_, minter, newMinter, holder1, holder2, newHolder]) => {
     })
 
     beforeEach(async () => {
-      await hny.mint(from, tokenAmount(50), { from: minter })
+      await hny.mint(from, tokenAmount(50), { from: issuer })
     })
 
     it('has the correct transferWithAuthorization typehash', async () => {
